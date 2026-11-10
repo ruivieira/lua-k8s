@@ -119,6 +119,9 @@ lua/k8s.lua               the public module (module `k8s`): re-exports the
 lua/k8s/primitives.lua    binary/available/argv/failure/items (module `k8s.primitives`)
 lua/k8s/client.lua        the Client implementation (module `k8s.client`)
 lua/k8s/core.lua          the process/quoting helpers it needs (module `k8s.core`)
+test/run.sh               the no-cluster suite: stub `oc`, every interpreter
+test/kind.lua             the real-cluster suite (read-only)
+test/kind.sh              its fixtures, on a kind cluster
 lua-k8s-0.1.0-1.rockspec
 ```
 
@@ -138,13 +141,34 @@ Two implementation notes a reader of the source may want:
 
 ## Test
 
-The test needs no cluster: it puts a stub `oc` on a sandbox `PATH` and checks
-that the module reports found, missing and forbidden as three different
+The unit suite needs no cluster: it puts a stub `oc` on a sandbox `PATH` and
+checks that the module reports found, missing and forbidden as three different
 answers, under every interpreter it finds.
 
 ```sh
 ./test/run.sh
 ```
+
+### Against a cluster
+
+`test/kind.sh` runs the same assertions against a kind cluster, where absence is
+real, `-n` has consequences and the wait loop polls a cluster that is changing.
+It applies its own fixtures in a namespace of its own, exports the cluster's
+kubeconfig to a temp file (so `~/.kube/config` is untouched), creates a
+Deployment a few seconds into the run so the wait loop has something to wait
+for, and deletes the namespace afterwards. The Lua suite only reads.
+
+```sh
+sh test/kind.sh                     # an existing kind cluster named lua-k8s-test
+sh test/kind.sh --create            # create it first
+sh test/kind.sh --create --delete   # ... and remove it when the run ends
+sh test/kind.sh --keep              # leave the fixtures for inspection
+```
+
+The suite runs once per interpreter it finds, through `oc` and `kubectl` when
+both are installed (`K8S_TEST_BINARIES`). Nothing in the fixtures has to run:
+every assertion is about an object existing or not, so a cluster with no image
+registry access is fine.
 
 ## License
 
